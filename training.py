@@ -11,13 +11,18 @@ import pdb
 
 warnings.simplefilter("ignore", UserWarning)
 import torch
+import torch.nn as nn
 
 
 def get_prior(args, inf_samples, prior_flow):
     if args.nf_prior:
         # Note, that here I am using T^+1 as T^-1
-        u = prior_flow(inf_samples)
-        log_jac_flow = prior_flow.log_abs_det_jacobian(inf_samples, u)
+        log_jac_flow = 0.
+        prev_v = inf_samples
+        for flow_num in range(args.num_nafs):
+            u = prior_flow[flow_num](prev_v)
+            log_jac_flow += prior_flow[flow_num].log_abs_det_jacobian(prev_v, u)
+            prev_v = u
         prior = -1. / 2 * torch.sum(u * u, 1) + log_jac_flow
     else:
         prior = -1. / 2 * torch.sum(inf_samples * inf_samples, 1)
@@ -45,9 +50,12 @@ def train_vae(args):
     prior_params = list([])
     prior_flow = None
     if args.nf_prior:
-        prior_flow = NeuralAutoregressive(
-                    AutoRegressiveNN(args.z_dim, [2 * args.z_dim], param_dims=[args.z_dim] * 3),
-                    hidden_units=256).to(args.device)
+        naf = []
+        for i in range(args.num_nafs):
+            one_arn = AutoRegressiveNN(args.z_dim, [2 * args.z_dim], param_dims=[2 * args.z_dim] * 3).to(args.device)
+            one_naf = NeuralAutoregressive(one_arn, hidden_units=256)
+            naf.append(one_naf)
+        prior_flow = nn.ModuleList(naf)
         prior_params = list(prior_flow.parameters())
 
     encoder = Encoder(args).to(args.device)
@@ -80,35 +88,38 @@ def train_vae(args):
             if val_elbo > best_val_elbo:
                 current_tolerance = 0
                 best_val_elbo = val_elbo
+                if not os.path.exists('./models/{}/'.format(args.data)):
+                    os.makedirs('./models/{}/'.format(args.data))
                 torch.save(encoder,
-                    './models/best_encoder_data_{}_skips_{}_prior_{}_samples_{}_zdim_{}_epoch_{}.pt'.format(args.data,
-                                            args.use_skips, args.nf_prior, args.n_samples, args.z_dim, ep))
+                    './models/{}/best_encoder_data_{}_skips_{}_prior_{}_numnafs_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_nafs, args.n_samples, args.z_dim))
                 torch.save(decoder,
-                    './models/best_decoder_data_{}_skips_{}_prior_{}_samples_{}_zdim_{}_epoch_{}.pt'.format(args.data,
-                                            args.use_skips, args.nf_prior, args.n_samples, args.z_dim, ep))
+                    './models/{}/best_decoder_data_{}_skips_{}_prior_{}_numnafs_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_nafs, args.n_samples, args.z_dim))
                 if args.nf_prior:
                     torch.save(prior_flow,
-                        './models/best_prior_data_{}_skips_{}_prior_{}_samples_{}_zdim_{}_epoch_{}.pt'.format(args.data,
-                                                args.use_skips, args.nf_prior, args.n_samples, args.z_dim, ep))
+                        './models/{}/best_prior_data_{}_skips_{}_prior_{}_numnafs_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                                args.data, args.use_skips, args.nf_prior, args.num_nafs, args.n_samples, args.z_dim))
             else:
                 current_tolerance += 1
                 if current_tolerance >= args.early_stopping_tolerance:
                     print("Early stopping on epoch {} (effectively trained for {} epoches)".format(ep,
                                                       ep - args.early_stopping_tolerance))
+                    break
             print('Current epoch: {}'.format(ep), '\t', 'Current validation ELBO: {}'.format(val_elbo),
                   '\t', 'Best validation ELBO: {}'.format(best_val_elbo))
         # scheduler step
         scheduler.step()
 
     # return best models:
-    encoder = torch.load('./models/best_encoder_data_{}_skips_{}_prior_{}_samples_{}_zdim_{}_epoch_{}.pt'.format(args.data,
-                                            args.use_skips, args.nf_prior, args.n_samples, args.z_dim, ep))
-    decoder = torch.load('./models/best_decoder_data_{}_skips_{}_prior_{}_samples_{}_zdim_{}_epoch_{}.pt'.format(args.data,
-                                            args.use_skips, args.nf_prior, args.n_samples, args.z_dim, ep))
+    encoder = torch.load('./models/{}/best_encoder_data_{}_skips_{}_prior_{}_numnafs_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_nafs, args.n_samples, args.z_dim))
+    decoder = torch.load('./models/{}/best_decoder_data_{}_skips_{}_prior_{}_numnafs_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_nafs, args.n_samples, args.z_dim))
     if args.nf_prior:
-        prior_flow = torch.load('./models/best_prior_data_{}_skips_{}_prior_{}_samples_{}_zdim_{}_epoch_{}.pt'.format(args.data,
-                                                args.use_skips, args.nf_prior, args.n_samples, args.z_dim, ep))
-    return encoder, decoder, prior_flow
+        prior_flow = torch.load('./models/{}/best_prior_data_{}_skips_{}_prior_{}_numnafs_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                                args.data, args.use_skips, args.nf_prior, args.num_nafs, args.n_samples, args.z_dim))
+    return encoder, decoder, prior_flow, data
 
 
 def validate_vae(args, encoder, decoder, dataset, prior_flow):

@@ -2,4 +2,4 @@
  
  
  
- Namespace(batch_size_test=10, batch_size_train=100, batch_size_val=100, data='mnist', data_c=1, data_h=28, data_w=28, early_stopping_tolerance=100, gpu=1, n_IS=1000, n_samples=1, nf_prior='None', num_epoches=2000, seed=1337, use_skips='False', val_data_size=1000, z_dim=64)
+ Namespace(batch_size_test=10, batch_size_train=100, batch_size_val=100, data='mnist', data_c=1, data_h=28, data_w=28, early_stopping_tolerance=100, gpu=1, n_IS=1000, n_samples=1, nf_prior='NAF', num_epoches=2000, num_nafs=3, seed=1337, use_skips='False', val_data_size=1000, z_dim=64)

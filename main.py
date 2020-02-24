@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from training import train_vae
 from utils import set_args
+from plotting import plot_vardistr, plot_prior, plot_digits
 
 torchType = torch.float32
 
@@ -19,6 +20,7 @@ parser.add_argument('-use_skips', type=str, choices=['True', 'False'],
                          ' with Generative Skip Models arXiv:1807.04863v2"', default='False')
 parser.add_argument('-nf_prior', type=str, choices=['NAF', 'None'],
                     help='Specify, which data to use', default='None')
+parser.add_argument('-num_nafs', type=int, help='How many NAF to use', default=1)
 parser.add_argument('-z_dim', type=int, help='Dimensionality of hidden space', default=64)
 
 ################################################## Training ######################################################
@@ -29,7 +31,7 @@ parser.add_argument('-seed', type=int, metavar='RANDOM_SEED',
 parser.add_argument('-gpu', type=int, help='If >=0 - if of device, -1 means cpu', default=-1)
 
 ################################################## Datasets ######################################################
-parser.add_argument('-data', type=str, choices=['mnist', 'recommend'],
+parser.add_argument('-data', type=str, choices=['mnist', 'goodreads'],
                     help='Specify, which data to use', required=True)
 parser.add_argument('-batch_size_train', type=int, help='Training batch size', default=100)
 parser.add_argument('-batch_size_test', type=int, help='Test batch size', default=10)
@@ -65,7 +67,9 @@ def main(args):
         with open("./log.txt", "a") as myfile:
             myfile.write("\n \n \n \n {}".format(args))
     args = set_args(args)
-    best_encoder, best_decoder, best_prior = train_vae(args)
+    best_encoder, best_decoder, best_prior, dataset = train_vae(args=args)
+    with torch.no_grad():
+        plot_prior(args=args, flows=best_prior)
 
     with open("./log.txt", "a") as myfile:
         myfile.write("!!Success!! \n \n \n \n".format(args))

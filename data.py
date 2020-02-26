@@ -1,11 +1,25 @@
 import torch
 import torchvision.datasets as datasets
-from torch.utils.data import Dataset as Dataset_pt
+from torch.utils.data import Dataset
+import pandas as pd
 import pdb
+
+class Dataset_goodread():
+    def __init__(self, args):
+        super(GR_data, self).__init__()
+        self.data = torch.tensor(pd.read_csv(args.csv_path).pivot(index='user_id',
+                        columns='book_id', values='rating').fillna(0.).values, device=args.device, dtype=args.torchType)
+        self.data /= self.data.max()
+    def __getitem__(self, idx):
+        item = torch.distributions.Binomial(probs=self.data[idx]).sample()
+        return item
+    def __len__(self):
+        return self.data.shape[0]
 
 class Dataset():
     def __init__(self, args):
         self.device = args.device
+        self.data = args.data
         if args.data == 'mnist':
             train = datasets.MNIST(root='./data/mnist', download=True)
             data_train = train.train_data.type(args.torchType).to(self.device)
@@ -15,12 +29,24 @@ class Dataset():
                 self.device)
             labels_test = test.test_labels.type(args.torchType).to(
                 self.device)
+            self.img_h = 28
+            self.img_w = 28
+            self.img_c = 1
+        elif args.data == 'goodreads':
+            csv = pd.read_csv(args.csv_path)
+            csv_train = csv[csv['user_id'] < (csv.user_id.max() - 1000)]
+            csv_test = csv[csv['user_id'] >= (csv.user_id.max() - 1000)]
+            data_train = torch.tensor(csv_train.pivot(index='user_id',
+                                                                 columns='book_id', values='rating').fillna(0.).values,
+                                device=args.device, dtype=args.torchType)
+            labels_train = torch.zeros(data_train.shape[0], device=args.device, dtype=args.torchType)
+            data_test = torch.tensor(csv_test.pivot(index='user_id',
+                                                                 columns='book_id', values='rating').fillna(0.).values,
+                                device=args.device, dtype=args.torchType)
+            labels_test = torch.zeros(data_test.shape[0], device=args.device, dtype=args.torchType)
         else:
             raise ModuleNotFoundError
 
-        self.img_h = 28
-        self.img_w = 28
-        self.img_c = 1
 
         permute = torch.randperm(data_train.size()[0])
         data_train = data_train[permute]
@@ -71,9 +97,12 @@ class Dataset():
         for train_batch in self.train_dataloader:
             batch = train_batch[0]
             labels = train_batch[1]
-            if self.img_c == 1:
+            if self.data == 'mnist':
                 batch = torch.distributions.Binomial(probs=batch).sample()
-            batch = batch.view([self.batch_size_train, self.img_c, self.img_h, self.img_w])
+                batch = batch.view([-1, self.img_c, self.img_h, self.img_w])
+            else:
+                batch = torch.distributions.Binomial(probs=batch).sample()
+                batch = batch.view([-1, 10000])
             if return_labels:
                 yield batch, labels
             else:
@@ -87,7 +116,12 @@ class Dataset():
         for val_batch in self.val_dataloader:
             batch = val_batch[0]
             labels = val_batch[1]
-            batch = batch.view([self.batch_size_val, self.img_c, self.img_h, self.img_w])
+            if self.data == 'mnist':
+                batch = torch.distributions.Binomial(probs=batch).sample()
+                batch = batch.view([-1, self.img_c, self.img_h, self.img_w])
+            else:
+                batch = torch.distributions.Binomial(probs=batch).sample()
+                batch = batch.view([-1, 10000])
             if return_labels:
                 yield batch, labels
             else:
@@ -100,9 +134,12 @@ class Dataset():
         for test_batch in self.test_dataloader:
             batch = test_batch[0]
             labels = test_batch[1]
-            if self.img_c == 1:
+            if self.data == 'mnist':
                 batch = torch.distributions.Binomial(probs=batch).sample()
-                batch = batch.view([self.batch_size_test, self.img_c, self.img_h, self.img_w])
+                batch = batch.view([-1, self.img_c, self.img_h, self.img_w])
+            else:
+                batch = torch.distributions.Binomial(probs=batch).sample()
+                batch = batch.view([-1, 10000])
             batch = batch.repeat(self.n_IS, 1, 1, 1)
             if return_labels:
                 labels = labels.repeat(self.n_IS, 1)

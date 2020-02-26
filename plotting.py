@@ -14,14 +14,15 @@ def plot_prior(args, flows):
     if not os.path.exists('./plot_data/{}/'.format(args.data)):
         os.makedirs('./plot_data/{}/'.format(args.data))
     # plots projection of prior on 2d space
-    samples = args.std_normal.sample((10000, args.z_dim))
+    samples = args.std_normal.sample((2000, args.z_dim))
     u = samples
     if args.nf_prior:
-        for i in range(args.num_nafs):
+        for i in range(args.num_nafs_prior):
             u = flows[i](u)
     u = u.cpu().detach().numpy()
-    np.savetxt(fname='./plot_data/{}/prior_data_{}_skips_{}_prior_{}_numnafs_{}_samples_{}_zdim_{}.txt'.format(args.data,
-                args.data, args.use_skips, args.nf_prior, args.num_nafs, args.n_samples, args.z_dim), X=u)
+    np.savetxt(fname='./plot_data/{}/prior_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
+                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim), X=u)
 
 
 def plot_digits():

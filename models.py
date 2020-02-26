@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import pdb
 torchType = torch.float32
 
 
@@ -56,4 +56,36 @@ class Decoder(nn.Module):
         h3 = F.softplus(self.deconv1(h2))
         h4 = F.softplus(self.deconv2(h3))
         bernoulli_logits = self.deconv3(h4)
+        return bernoulli_logits
+
+
+class Encoder_rec(nn.Module):
+    def __init__(self, args):
+        super(Encoder_rec, self).__init__()
+        self.z_dim = args.z_dim
+        self.lin1 = nn.Linear(10000, 600)
+        self.lin2 = nn.Linear(600, 200)
+
+        self.mu = nn.Linear(in_features=200, out_features=self.z_dim)
+        self.sigma = nn.Linear(in_features=200, out_features=self.z_dim)
+
+    def forward(self, x):
+        h = F.softplus(self.lin1(x))
+        h = F.softplus(self.lin2(h))
+        mu = self.mu(h)
+        sigma = F.softplus(self.sigma(h))
+        return mu, sigma
+
+
+class Decoder_rec(nn.Module):
+    def __init__(self, args):
+        super(Decoder_rec, self).__init__()
+        self.lin1 = nn.Linear(args.z_dim, 200)
+        self.lin2 = nn.Linear(200, 600)
+        self.lin3 = nn.Linear(600, 10000)
+
+    def forward(self, x):
+        h = F.softplus(self.lin1(x))
+        h = F.softplus(self.lin2(h))
+        bernoulli_logits = self.lin3(h)
         return bernoulli_logits

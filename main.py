@@ -18,9 +18,15 @@ parser.add_argument('-n_samples', type=int,
 parser.add_argument('-use_skips', type=str, choices=['True', 'False'],
                     help='Whether to use skip-connections from "Avoiding Latent Variable Collapse'
                          ' with Generative Skip Models arXiv:1807.04863v2"', default='False')
+
 parser.add_argument('-nf_prior', type=str, choices=['NAF', 'None'],
-                    help='Specify, which data to use', default='None')
-parser.add_argument('-num_nafs', type=int, help='How many NAF to use', default=1)
+                    help='Whether to use NAF to enchance distribution or not', default='None')
+parser.add_argument('-num_nafs_prior', type=int, help='How many NAF to use in prior', default=1)
+
+parser.add_argument('-nf_vardistr', type=str, choices=['NAF', 'None'],
+                    help='Whether to use NAF to enchance distribution or not', default='None')
+parser.add_argument('-num_nafs_vardistr', type=int, help='How many NAF to use', default=1)
+
 parser.add_argument('-z_dim', type=int, help='Dimensionality of hidden space', default=64)
 
 ################################################## Training ######################################################
@@ -30,9 +36,11 @@ parser.add_argument('-seed', type=int, metavar='RANDOM_SEED',
                     help='Random seed. If not provided, resort to random', default=1337)
 parser.add_argument('-gpu', type=int, help='If >=0 - if of device, -1 means cpu', default=-1)
 
+parser.add_argument('-metric', type=str, choices=['elbo'], help='Metric for validation', default='elbo')
 ################################################## Datasets ######################################################
 parser.add_argument('-data', type=str, choices=['mnist', 'goodreads'],
                     help='Specify, which data to use', required=True)
+parser.add_argument('-csv_path', type=str, default='./data/goodreads/ratings.csv')
 parser.add_argument('-batch_size_train', type=int, help='Training batch size', default=100)
 parser.add_argument('-batch_size_test', type=int, help='Test batch size', default=10)
 parser.add_argument('-n_IS', type=int, help='Number of Importance samples for NLL estimation', default=1000)
@@ -60,12 +68,8 @@ if args.seed is None:
 set_seeds(args.seed)
 
 def main(args):
-    if os.path.exists('./log.txt'): # if exists, create new
-        with open("./log.txt", "w") as myfile:
-            myfile.write("\n \n \n \n {}".format(args))
-    else: # else, append
-        with open("./log.txt", "a") as myfile:
-            myfile.write("\n \n \n \n {}".format(args))
+    with open("./log.txt", "a") as myfile:
+        myfile.write("\n \n \n \n {}".format(args))
     args = set_args(args)
     best_encoder, best_decoder, best_prior, dataset = train_vae(args=args)
     with torch.no_grad():

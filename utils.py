@@ -14,6 +14,7 @@ def set_args(args):
     args.torchType = torch.float32
     args['use_skips'] = True if args['use_skips'] == 'True' else False
     args['nf_prior'] = None if args['nf_prior'] == 'None' else args['nf_prior']
+    args['nf_vardistr'] = None if args['nf_vardistr'] == 'None' else args['nf_vardistr']
 
     args.std_normal = torch.distributions.Normal(loc=torch.tensor(0., device=args.device, dtype=args.torchType),
                                scale=torch.tensor(1., device=args.device, dtype=args.torchType))

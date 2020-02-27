@@ -1,4 +1,5 @@
 import torch
+from metrics import elbo, NDCG_binary_at_k_batch, Recall_at_k_batch
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -18,4 +19,11 @@ def set_args(args):
 
     args.std_normal = torch.distributions.Normal(loc=torch.tensor(0., device=args.device, dtype=args.torchType),
                                scale=torch.tensor(1., device=args.device, dtype=args.torchType))
+    args.metric_name = args.metric
+    if args.metric == 'elbo':
+        args.metric = elbo
+    elif args.metric == 'ndcg':
+        args.metric = NDCG_binary_at_k_batch
+    elif args.metric == 'recall':
+        args.metric = Recall_at_k_batch
     return args

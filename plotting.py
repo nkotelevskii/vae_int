@@ -14,7 +14,7 @@ def plot_prior(args, flows):
     if not os.path.exists('./plot_data/{}/'.format(args.data)):
         os.makedirs('./plot_data/{}/'.format(args.data))
     # plots projection of prior on 2d space
-    samples = args.std_normal.sample((2000, args.z_dim))
+    samples = args.std_normal.sample((10000, args.z_dim))
     u = samples
     if args.nf_prior:
         for i in range(args.num_nafs_prior):

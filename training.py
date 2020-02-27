@@ -49,9 +49,8 @@ def compute_objective(args, x_logits, x_true, sampled_noise, inf_samples, sum_lo
     return elbo
 
 def train_vae(args):
+    best_metric = -float("inf")
 
-    if args.metric == 'elbo':
-        best_metric = -float("inf")
     prior_params = list([])
     varflow_params = list([])
     prior_flow = None
@@ -151,8 +150,8 @@ def train_vae(args):
                     print("Early stopping on epoch {} (effectively trained for {} epoches)".format(ep,
                                                       ep - args.early_stopping_tolerance))
                     break
-            print('Current epoch: {}'.format(ep), '\t', 'Current validation {}: {}'.format(args.metric, metric),
-                  '\t', 'Best validation {}: {}'.format(args.metric, best_metric))
+            print('Current epoch: {}'.format(ep), '\t', 'Current validation {}: {}'.format(args.metric_name, metric),
+                  '\t', 'Best validation {}: {}'.format(args.metric_name, best_metric))
 
     # return best models:
     encoder = torch.load('./models/{}/best_encoder_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
@@ -169,7 +168,7 @@ def train_vae(args):
 
 
 def validate_vae(args, encoder, decoder, dataset, prior_flow, variational_flow):
-    elbo_list = []
+    metric_list = []
     for batch_num, batch_val in enumerate(dataset.next_val_batch()):
         mu, sigma = encoder(batch_val)
         sum_log_sigma = torch.sum(torch.log(sigma), 1)
@@ -184,10 +183,9 @@ def validate_vae(args, encoder, decoder, dataset, prior_flow, variational_flow):
                 prev_v = u
             z = u
         logits = decoder(z)
-        elbo = compute_objective(args=args, x_logits=logits, x_true=batch_val, sampled_noise=eps,
+        metric = args.metric(args=args, x_logits=logits, x_true=batch_val, sampled_noise=eps,
                                      inf_samples=z, sum_log_sigma=sum_log_sigma, prior_flow=prior_flow,
                                  sum_log_jacobian=sum_log_jacobian)
-        elbo_list.append(elbo.detach().mean().item())
-    mean_val_elbo = torch.mean(torch.tensor(elbo_list, device=args.device,
-                                            dtype=args.torchType)).cpu().detach().numpy()
-    return mean_val_elbo
+        metric_list.append(metric)
+    mean_val_metric = np.mean(metric_list)
+    return mean_val_metric

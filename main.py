@@ -3,6 +3,7 @@ import os
 import random
 import numpy as np
 import torch
+
 from training import train_vae
 from utils import set_args
 from plotting import plot_vardistr, plot_prior, plot_digits
@@ -36,7 +37,9 @@ parser.add_argument('-seed', type=int, metavar='RANDOM_SEED',
                     help='Random seed. If not provided, resort to random', default=1337)
 parser.add_argument('-gpu', type=int, help='If >=0 - if of device, -1 means cpu', default=-1)
 
-parser.add_argument('-metric', type=str, choices=['elbo'], help='Metric for validation', default='elbo')
+
+parser.add_argument('-metric', type=str, choices=['elbo', 'recall', 'ndcg'], help='Metric for validation', default='elbo')
+parser.add_argument('-k_for_cf', type=int, default=100)
 ################################################## Datasets ######################################################
 parser.add_argument('-data', type=str, choices=['mnist', 'goodreads'],
                     help='Specify, which data to use', required=True)

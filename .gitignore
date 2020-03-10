@@ -4,3 +4,4 @@ models/*/*.pt
 __pycache__/
 data/
 plot_data/
+plot_data/mnist/*

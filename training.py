@@ -5,7 +5,7 @@ from data import Dataset
 from models import Decoder, Encoder, Decoder_rec, Encoder_rec
 from tqdm import tqdm
 from pyro.nn import AutoRegressiveNN
-from pyro.distributions.transforms import NeuralAutoregressive
+from pyro.distributions.transforms import NeuralAutoregressive, AffineAutoregressive
 
 import pdb
 
@@ -57,12 +57,12 @@ def train_vae(args):
     variational_flow = None
     
     if args.nf_prior:
-        naf = []
+        flows = []
         for i in range(args.num_nafs_prior):
-            one_arn = AutoRegressiveNN(args.z_dim, [2 * args.z_dim], param_dims=[2 * args.z_dim] * 3).to(args.device)
-            one_naf = NeuralAutoregressive(one_arn, hidden_units=256)
-            naf.append(one_naf)
-        prior_flow = nn.ModuleList(naf)
+            one_arn = AutoRegressiveNN(args.z_dim, [2 * args.z_dim]).to(args.device)
+            one_flow = AffineAutoregressive(one_arn)
+            flows.append(one_flow)
+        prior_flow = nn.ModuleList(flows)
         prior_params = list(prior_flow.parameters())
 
     if args.data == 'mnist':
@@ -71,12 +71,12 @@ def train_vae(args):
         encoder = Encoder_rec(args).to(args.device)
 
     if args.nf_vardistr:
-        naf = []
+        flows = []
         for i in range(args.num_nafs_vardistr):
             one_arn = AutoRegressiveNN(args.z_dim, [2 * args.z_dim], param_dims=[2 * args.z_dim] * 3).to(args.device)
-            one_naf = NeuralAutoregressive(one_arn, hidden_units=256)
-            naf.append(one_naf)
-        variational_flow = nn.ModuleList(naf)
+            one_flows = NeuralAutoregressive(one_arn, hidden_units=256)
+            flows.append(one_flows)
+        variational_flow = nn.ModuleList(flows)
         varflow_params = list(variational_flow.parameters())
 
     if args.data == 'mnist':

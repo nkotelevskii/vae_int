@@ -1,2 +1,2 @@
 #python3 main.py -nf_prior None -nf_vardistr None -data mnist -gpu 1 -batch_size_test 100 -n_IS 1
-python3 main.py -nf_prior NAF -nf_vardistr NAF -data mnist -gpu 1 -batch_size_test 100 -n_IS 1
+python3 main.py -nf_prior IAF -num_nafs_prior 5 -nf_vardistr NAF -num_nafs_vardistr 1 -data mnist -gpu 1 -batch_size_test 100 -n_IS 1

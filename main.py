@@ -21,7 +21,7 @@ parser.add_argument('-use_skips', type=str, choices=['True', 'False'],
                     help='Whether to use skip-connections from "Avoiding Latent Variable Collapse'
                          ' with Generative Skip Models arXiv:1807.04863v2"', default='False')
 
-parser.add_argument('-nf_prior', type=str, choices=['NAF', 'None'],
+parser.add_argument('-nf_prior', type=str, choices=['IAF', 'None'],
                     help='Whether to use NAF to enchance distribution or not', default='None')
 parser.add_argument('-num_nafs_prior', type=int, help='How many NAF to use in prior', default=1)
 

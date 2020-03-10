@@ -4,8 +4,8 @@ import numpy as np
 from data import Dataset
 from models import Decoder, Encoder, Decoder_rec, Encoder_rec
 from tqdm import tqdm
-from pyro.nn import AutoRegressiveNN
-from pyro.distributions.transforms import NeuralAutoregressive, AffineAutoregressive
+from pyro.nn import AutoRegressiveNN, DenseNN
+from pyro.distributions.transforms import NeuralAutoregressive, AffineAutoregressive, AffineCoupling
 
 import pdb
 
@@ -19,7 +19,7 @@ def get_prior(args, inf_samples, prior_flow):
         # Note, that here I am using T^+1 as T^-1
         log_jac_flow = 0.
         prev_v = inf_samples
-        for flow_num in range(args.num_nafs_prior):
+        for flow_num in range(args.num_flows_prior):
             u = prior_flow[flow_num](prev_v)
             log_jac_flow += prior_flow[flow_num].log_abs_det_jacobian(prev_v, u)
             prev_v = u
@@ -58,9 +58,14 @@ def train_vae(args):
     
     if args.nf_prior:
         flows = []
-        for i in range(args.num_nafs_prior):
-            one_arn = AutoRegressiveNN(args.z_dim, [2 * args.z_dim]).to(args.device)
-            one_flow = AffineAutoregressive(one_arn)
+        for i in range(args.num_flows_prior):
+            if args.nf_prior == 'IAF':
+                one_arn = AutoRegressiveNN(args.z_dim, [2 * args.z_dim]).to(args.device)
+                one_flow = AffineAutoregressive(one_arn)
+            elif args.nf_prior == 'RNVP':
+                hypernet = DenseNN(input_dim=args.z_dim // 2, hidden_dims=[2 * args.z_dim, 2 * args.z_dim],
+                        param_dims=[args.z_dim - args.z_dim // 2, args.z_dim - args.z_dim // 2]).to(args.device)
+                one_flow = AffineCoupling(args.z_dim // 2, hypernet).to(args.device)
             flows.append(one_flow)
         prior_flow = nn.ModuleList(flows)
         prior_params = list(prior_flow.parameters())
@@ -72,7 +77,7 @@ def train_vae(args):
 
     if args.nf_vardistr:
         flows = []
-        for i in range(args.num_nafs_vardistr):
+        for i in range(args.num_flows_vardistr):
             one_arn = AutoRegressiveNN(args.z_dim, [2 * args.z_dim], param_dims=[2 * args.z_dim] * 3).to(args.device)
             one_flows = NeuralAutoregressive(one_arn, hidden_units=256)
             flows.append(one_flows)
@@ -103,7 +108,7 @@ def train_vae(args):
             z = mu + sigma * eps
             if variational_flow:
                 prev_v = z
-                for flow_num in range(args.num_nafs_vardistr):
+                for flow_num in range(args.num_flows_vardistr):
                     u = variational_flow[flow_num](prev_v)
                     sum_log_jacobian += variational_flow[flow_num].log_abs_det_jacobian(prev_v, u)
                     prev_v = u
@@ -122,29 +127,32 @@ def train_vae(args):
         with torch.no_grad():
             metric = validate_vae(args=args, encoder=encoder, decoder=decoder, dataset=data, prior_flow=prior_flow,
                                     variational_flow=variational_flow)
+            if (metric != metric).sum():
+                print('NAN appeared!')
+                raise ValueError
             if metric > best_metric:
                 current_tolerance = 0
                 best_metric = metric
                 if not os.path.exists('./models/{}/'.format(args.data)):
                     os.makedirs('./models/{}/'.format(args.data))
                 torch.save(encoder,
-                    './models/{}/best_encoder_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
+                    './models/{}/best_encoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
                 torch.save(decoder,
-                    './models/{}/best_decoder_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
+                    './models/{}/best_decoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
                 if args.nf_prior:
                     torch.save(prior_flow,
-                        './models/{}/best_prior_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
+                        './models/{}/best_prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
                 if args.nf_vardistr:
                     torch.save(variational_flow,
-                        './models/{}/best_varflow_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
+                        './models/{}/best_varflow_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
             else:
                 current_tolerance += 1
                 if current_tolerance >= args.early_stopping_tolerance:
@@ -155,20 +163,20 @@ def train_vae(args):
                   '\t', 'Best validation {}: {}'.format(args.metric_name, best_metric))
 
     # return best models:
-    encoder = torch.load('./models/{}/best_encoder_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
-    decoder = torch.load('./models/{}/best_decoder_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
+    encoder = torch.load('./models/{}/best_encoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
+    decoder = torch.load('./models/{}/best_decoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
     if args.nf_prior:
-        prior_flow = torch.load('./models/{}/best_prior_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
+        prior_flow = torch.load('./models/{}/best_prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
     if args.nf_vardistr:
-        variational_flow = torch.load('./models/{}/best_varflow_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
+        variational_flow = torch.load('./models/{}/best_varflow_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
     return encoder, decoder, prior_flow, variational_flow, data
 
 
@@ -182,7 +190,7 @@ def validate_vae(args, encoder, decoder, dataset, prior_flow, variational_flow):
         z = mu + sigma * eps
         if variational_flow:
             prev_v = z
-            for flow_num in range(args.num_nafs_vardistr):
+            for flow_num in range(args.num_flows_vardistr):
                 u = variational_flow[flow_num](prev_v)
                 sum_log_jacobian += variational_flow[flow_num].log_abs_det_jacobian(prev_v, u)
                 prev_v = u

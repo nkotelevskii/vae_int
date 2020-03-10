@@ -53,7 +53,7 @@ def elbo(args, x_logits, x_true, sampled_noise, inf_samples, sum_log_sigma, prio
             # Note, that here I am using T^+1 as T^-1
             log_jac_flow = 0.
             prev_v = inf_samples
-            for flow_num in range(args.num_nafs_prior):
+            for flow_num in range(args.num_flows_prior):
                 u = prior_flow[flow_num](prev_v)
                 log_jac_flow += prior_flow[flow_num].log_abs_det_jacobian(prev_v, u)
                 prev_v = u

@@ -34,8 +34,8 @@ class Dataset():
             self.img_c = 1
         elif args.data == 'goodreads':
             csv = pd.read_csv(args.csv_path)
-            csv_train = csv[csv['user_id'] < (csv.user_id.max() - 1000)]
-            csv_test = csv[csv['user_id'] >= (csv.user_id.max() - 1000)]
+            csv_train = csv[csv['user_id'] < (csv.user_id.max() - 7000)]
+            csv_test = csv[csv['user_id'] >= (csv.user_id.max() - 7000)]
             data_train = torch.tensor(csv_train.pivot(index='user_id',
                                                                  columns='book_id', values='rating').fillna(0.).values,
                                 device=args.device, dtype=args.torchType)
@@ -138,12 +138,12 @@ class Dataset():
             if self.data == 'mnist':
                 batch = torch.distributions.Binomial(probs=batch).sample()
                 batch = batch.view([-1, self.img_c, self.img_h, self.img_w])
+                batch = batch.repeat(self.n_IS, 1, 1, 1)
             else:
                 batch = torch.distributions.Binomial(probs=batch).sample()
                 batch = batch.view([-1, 10000])
-            batch = batch.repeat(self.n_IS, 1, 1, 1)
+                batch = batch.repeat(self.n_IS, 1)
             if return_labels:
-                labels = labels.repeat(self.n_IS, 1)
                 yield batch, labels
             else:
                 yield batch

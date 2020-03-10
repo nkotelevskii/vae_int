@@ -20,12 +20,12 @@ def plot_vardistr(args, encoder, flows, dataset):
         labels = torch.cat([labels, test_labels])
     points = points.numpy()
     labels = labels.numpy()
-    np.savetxt(fname='./plot_data/{}/vardistr_points_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
-                                                args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                    args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim), X=points)
-    np.savetxt(fname='./plot_data/{}/vardistr_labels_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim), X=labels)
+    np.savetxt(fname='./plot_data/{}/vardistr_points_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
+                                                args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                    args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim), X=points)
+    np.savetxt(fname='./plot_data/{}/vardistr_labels_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim), X=labels)
         
 
 def plot_prior(args, flows):
@@ -36,12 +36,12 @@ def plot_prior(args, flows):
     samples = args.std_normal.sample((10000, args.z_dim))
     u = samples
     if args.nf_prior:
-        for i in range(args.num_nafs_prior):
+        for i in range(args.num_flows_prior):
             u = flows[i](u)
     u = u.cpu().detach().numpy()
-    np.savetxt(fname='./plot_data/{}/prior_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
-                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
-                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim), X=u)
+    np.savetxt(fname='./plot_data/{}/prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim), X=u)
 
 def plot_digit_samples(samples):
     """

@@ -55,6 +55,7 @@ def train_vae(args):
     varflow_params = list([])
     prior_flow = None
     variational_flow = None
+    
     if args.nf_prior:
         naf = []
         for i in range(args.num_nafs_prior):
@@ -164,7 +165,11 @@ def train_vae(args):
         prior_flow = torch.load('./models/{}/best_prior_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
                                                 args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
-    return encoder, decoder, prior_flow, data
+    if args.nf_vardistr:
+        variational_flow = torch.load('./models/{}/best_varflow_data_{}_skips_{}_prior_{}_numnafs_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                            args.data, args.use_skips, args.nf_prior, args.num_nafs_prior,
+                                                args.nf_vardistr, args.num_nafs_vardistr, args.n_samples, args.z_dim))
+    return encoder, decoder, prior_flow, variational_flow, data
 
 
 def validate_vae(args, encoder, decoder, dataset, prior_flow, variational_flow):

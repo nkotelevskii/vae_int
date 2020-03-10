@@ -3,10 +3,11 @@ import os
 import random
 import numpy as np
 import torch
+import pdb
 
 from training import train_vae
 from utils import set_args
-from plotting import plot_vardistr, plot_prior, plot_digits
+from plotting import plot_vardistr, plot_prior
 
 torchType = torch.float32
 
@@ -74,9 +75,11 @@ def main(args):
     with open("./log.txt", "a") as myfile:
         myfile.write("\n \n \n \n {}".format(args))
     args = set_args(args)
-    best_encoder, best_decoder, best_prior, dataset = train_vae(args=args)
+    best_encoder, best_decoder, best_prior, best_varflow, dataset = train_vae(args=args)
     with torch.no_grad():
         plot_prior(args=args, flows=best_prior)
+        # pdb.set_trace()
+        plot_vardistr(args=args, dataset=dataset, flows=best_varflow, encoder=best_encoder)
 
     with open("./log.txt", "a") as myfile:
         myfile.write("!!Success!! \n \n \n \n".format(args))

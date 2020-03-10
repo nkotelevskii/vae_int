@@ -70,6 +70,7 @@ class Dataset():
         self.test_labels = labels_test.data
 
         self.batch_size_train = args.batch_size_train
+        # pdb.set_trace()
 
         train_data = []
         for i in range(self.train.shape[0]):

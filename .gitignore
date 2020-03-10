@@ -3,3 +3,4 @@ models/*/*.pt
 .ipynb_checkpoints/
 __pycache__/
 data/
+plot_data/

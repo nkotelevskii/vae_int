@@ -32,10 +32,11 @@ class Dataset():
             self.img_h = 28
             self.img_w = 28
             self.img_c = 1
-        elif args.data == 'goodreads':
-            csv = pd.read_csv(args.csv_path)
+        elif args.data in ['goodreads', 'big_dataset']:
+            csv = pd.read_csv(args.csv_path)[:75000]
             csv_train = csv[csv['user_id'] < (csv.user_id.max() - 7000)]
             csv_test = csv[csv['user_id'] >= (csv.user_id.max() - 7000)]
+            # pdb.set_trace()
             data_train = torch.tensor(csv_train.pivot(index='user_id',
                                                                  columns='book_id', values='rating').fillna(0.).values,
                                 device=args.device, dtype=args.torchType)
@@ -44,6 +45,8 @@ class Dataset():
                                                                  columns='book_id', values='rating').fillna(0.).values,
                                 device=args.device, dtype=args.torchType)
             labels_test = torch.zeros(data_test.shape[0], device=args.device, dtype=args.torchType)
+
+            self.feature_shape = data_train.shape[1]
         else:
             raise ModuleNotFoundError
 
@@ -103,7 +106,7 @@ class Dataset():
                 batch = batch.view([-1, self.img_c, self.img_h, self.img_w])
             else:
                 batch = torch.distributions.Binomial(probs=batch).sample()
-                batch = batch.view([-1, 10000])
+                batch = batch.view([-1, self.feature_shape])
             if return_labels:
                 yield batch, labels
             else:
@@ -122,7 +125,7 @@ class Dataset():
                 batch = batch.view([-1, self.img_c, self.img_h, self.img_w])
             else:
                 batch = torch.distributions.Binomial(probs=batch).sample()
-                batch = batch.view([-1, 10000])
+                batch = batch.view([-1, self.feature_shape])
             if return_labels:
                 yield batch, labels
             else:
@@ -141,7 +144,7 @@ class Dataset():
                 batch = batch.repeat(self.n_IS, 1, 1, 1)
             else:
                 batch = torch.distributions.Binomial(probs=batch).sample()
-                batch = batch.view([-1, 10000])
+                batch = batch.view([-1, self.feature_shape])
                 batch = batch.repeat(self.n_IS, 1)
             if return_labels:
                 yield batch, labels

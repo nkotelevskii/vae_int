@@ -38,11 +38,13 @@ parser.add_argument('-seed', type=int, metavar='RANDOM_SEED',
                     help='Random seed. If not provided, resort to random', default=1337)
 parser.add_argument('-gpu', type=int, help='If >=0 - if of device, -1 means cpu', default=-1)
 
+parser.add_argument('-use_reparam', type=str, help='whether to use reparametrization trick or not',
+                    choices=['True', 'False'], default="True")
 
 parser.add_argument('-metric', type=str, choices=['elbo', 'recall', 'ndcg'], help='Metric for validation', default='elbo')
 parser.add_argument('-k_for_cf', type=int, default=100)
 ################################################## Datasets ######################################################
-parser.add_argument('-data', type=str, choices=['mnist', 'goodreads'],
+parser.add_argument('-data', type=str, choices=['mnist', 'goodreads', 'big_dataset'],
                     help='Specify, which data to use', required=True)
 parser.add_argument('-csv_path', type=str, default='./data/goodreads/ratings.csv')
 parser.add_argument('-batch_size_train', type=int, help='Training batch size', default=100)

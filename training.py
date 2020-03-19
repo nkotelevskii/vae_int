@@ -36,25 +36,38 @@ def get_likelihood(x_logits, x_true):
         log_likelihood = torch.sum(p_x_given_z.log_prob(x_true), 1)
     return log_likelihood
 
-def get_variational(sum_log_sigma, sampled_noise, sum_log_jacobian):
+def get_variational(sum_log_sigma, sampled_noise, sum_log_jacobian, args, inf_samples, mu, sigma):
     variational_distr = -sum_log_sigma - 0.5 * torch.sum(sampled_noise * sampled_noise, 1) - sum_log_jacobian
     return variational_distr
 
-def compute_objective(args, x_logits, x_true, sampled_noise, inf_samples, sum_log_sigma, prior_flow, sum_log_jacobian):
+def compute_objective(args, x_logits, x_true, sampled_noise, inf_samples, sum_log_sigma, prior_flow,
+                      sum_log_jacobian, mu, sigma):
+    # pdb.set_trace()
     log_likelihood = get_likelihood(x_logits, x_true)
     prior = get_prior(args=args, inf_samples=inf_samples, prior_flow=prior_flow)
     variational_distr = get_variational(sum_log_sigma=sum_log_sigma,
-                                        sampled_noise=sampled_noise, sum_log_jacobian=sum_log_jacobian)
-    elbo = torch.mean(log_likelihood + prior - variational_distr)
+                                        sampled_noise=sampled_noise, sum_log_jacobian=sum_log_jacobian, args=args,
+                                        inf_samples=inf_samples, mu=mu, sigma=sigma)
+    if args.use_reparam:
+        elbo = torch.mean(log_likelihood + prior - variational_distr)
+    else:
+        classic_elbo = log_likelihood + prior - variational_distr
+        elbo = torch.mean(log_likelihood + prior + (-sum_log_sigma - 0.5 * torch.sum((inf_samples - mu)**2 / sigma**2, 1)) * (classic_elbo.detach() - 1.))
+    # pdb.set_trace()
     return elbo
 
 def train_vae(args):
+    # pdb.set_trace()
     best_metric = -float("inf")
 
     prior_params = list([])
     varflow_params = list([])
     prior_flow = None
     variational_flow = None
+
+    data = Dataset(args)
+    if args.data in ['goodreads', 'big_dataset']:
+        args.feature_shape = data.feature_shape
     
     if args.nf_prior:
         flows = []
@@ -72,7 +85,7 @@ def train_vae(args):
 
     if args.data == 'mnist':
         encoder = Encoder(args).to(args.device)
-    elif args.data == 'goodreads':
+    elif args.data in ['goodreads', 'big_dataset']:
         encoder = Encoder_rec(args).to(args.device)
 
     if args.nf_vardistr:
@@ -86,7 +99,7 @@ def train_vae(args):
 
     if args.data == 'mnist':
         decoder = Decoder(args).to(args.device)
-    elif args.data == 'goodreads':
+    elif args.data in ['goodreads', 'big_dataset']:
         decoder = Decoder_rec(args).to(args.device)
 
     params = list(encoder.parameters()) + list(decoder.parameters()) + prior_params + varflow_params
@@ -94,18 +107,18 @@ def train_vae(args):
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
 
     current_tolerance = 0
-
-    data = Dataset(args)
     # with torch.autograd.detect_anomaly():
     for ep in tqdm(range(args.num_epoches)):
         # training cycle
         for batch_num, batch_train in enumerate(data.next_train_batch()):
-            batch_train_repeated = torch.repeat_interleave(batch_train, args.n_samples, dim=0)
+            batch_train_repeated = batch_train.repeat(*[[args.n_samples] + [1] * (len(batch_train.shape) - 1)])
             mu, sigma = encoder(batch_train_repeated)
             sum_log_sigma = torch.sum(torch.log(sigma), 1)
             sum_log_jacobian = 0.
             eps = args.std_normal.sample(mu.shape)
             z = mu + sigma * eps
+            if not args.use_reparam:
+                z = z.detach()
             if variational_flow:
                 prev_v = z
                 for flow_num in range(args.num_flows_vardistr):
@@ -116,7 +129,7 @@ def train_vae(args):
             logits = decoder(z)
             elbo = compute_objective(args=args, x_logits=logits, x_true=batch_train_repeated, sampled_noise=eps,
                                      inf_samples=z, sum_log_sigma=sum_log_sigma, prior_flow=prior_flow,
-                                     sum_log_jacobian=sum_log_jacobian)
+                                     sum_log_jacobian=sum_log_jacobian, mu=mu, sigma=sigma)
             (-elbo).backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -136,23 +149,23 @@ def train_vae(args):
                 if not os.path.exists('./models/{}/'.format(args.data)):
                     os.makedirs('./models/{}/'.format(args.data))
                 torch.save(encoder,
-                    './models/{}/best_encoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                    './models/{}/best_encoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam))
                 torch.save(decoder,
-                    './models/{}/best_decoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                    './models/{}/best_decoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam))
                 if args.nf_prior:
                     torch.save(prior_flow,
-                        './models/{}/best_prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                        './models/{}/best_prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam))
                 if args.nf_vardistr:
                     torch.save(variational_flow,
-                        './models/{}/best_varflow_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                        './models/{}/best_varflow_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam))
             else:
                 current_tolerance += 1
                 if current_tolerance >= args.early_stopping_tolerance:
@@ -163,20 +176,20 @@ def train_vae(args):
                   '\t', 'Best validation {}: {}'.format(args.metric_name, best_metric))
 
     # return best models:
-    encoder = torch.load('./models/{}/best_encoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+    encoder = torch.load('./models/{}/best_encoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
-    decoder = torch.load('./models/{}/best_decoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam))
+    decoder = torch.load('./models/{}/best_decoder_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam))
     if args.nf_prior:
-        prior_flow = torch.load('./models/{}/best_prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+        prior_flow = torch.load('./models/{}/best_prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam))
     if args.nf_vardistr:
-        variational_flow = torch.load('./models/{}/best_varflow_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.pt'.format(args.data,
+        variational_flow = torch.load('./models/{}/best_varflow_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.pt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim))
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam))
     return encoder, decoder, prior_flow, variational_flow, data
 
 

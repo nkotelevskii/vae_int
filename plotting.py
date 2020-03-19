@@ -20,12 +20,12 @@ def plot_vardistr(args, encoder, flows, dataset):
         labels = torch.cat([labels, test_labels])
     points = points.numpy()
     labels = labels.numpy()
-    np.savetxt(fname='./plot_data/{}/vardistr_points_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
+    np.savetxt(fname='./plot_data/{}/vardistr_points_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.txt'.format(args.data,
                                                 args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                    args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim), X=points)
-    np.savetxt(fname='./plot_data/{}/vardistr_labels_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
+                                                    args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam), X=points)
+    np.savetxt(fname='./plot_data/{}/vardistr_labels_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.txt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim), X=labels)
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam), X=labels)
         
 
 def plot_prior(args, flows):
@@ -39,9 +39,9 @@ def plot_prior(args, flows):
         for i in range(args.num_flows_prior):
             u = flows[i](u)
     u = u.cpu().detach().numpy()
-    np.savetxt(fname='./plot_data/{}/prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}.txt'.format(args.data,
+    np.savetxt(fname='./plot_data/{}/prior_data_{}_skips_{}_prior_{}_numflows_{}_varflow_{}_numvarflows_{}_samples_{}_zdim_{}_usereparam_{}.txt'.format(args.data,
                                             args.data, args.use_skips, args.nf_prior, args.num_flows_prior,
-                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim), X=u)
+                                                args.nf_vardistr, args.num_flows_vardistr, args.n_samples, args.z_dim, args.use_reparam), X=u)
 
 def plot_digit_samples(samples):
     """

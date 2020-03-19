@@ -63,7 +63,7 @@ class Encoder_rec(nn.Module):
     def __init__(self, args):
         super(Encoder_rec, self).__init__()
         self.z_dim = args.z_dim
-        self.lin1 = nn.Linear(10000, 600)
+        self.lin1 = nn.Linear(args.feature_shape, 600)
         self.lin2 = nn.Linear(600, 200)
 
         self.mu = nn.Linear(in_features=200, out_features=self.z_dim)
@@ -82,7 +82,7 @@ class Decoder_rec(nn.Module):
         super(Decoder_rec, self).__init__()
         self.lin1 = nn.Linear(args.z_dim, 200)
         self.lin2 = nn.Linear(200, 600)
-        self.lin3 = nn.Linear(600, 10000)
+        self.lin3 = nn.Linear(600, args.feature_shape)
 
     def forward(self, x):
         h = F.softplus(self.lin1(x))

@@ -19,7 +19,7 @@ def get_prior(args, inf_samples, prior_flow):
         # Note, that here I am using T^+1 as T^-1
         log_jac_flow = 0.
         prev_v = inf_samples
-        for flow_num in range(args.num_flows_prior):
+        for flow_num in range(args.num_flows_prior)[::-1]:
             u = prior_flow[flow_num](prev_v)
             log_jac_flow += prior_flow[flow_num].log_abs_det_jacobian(prev_v, u)
             prev_v = u
